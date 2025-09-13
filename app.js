@@ -1,15 +1,16 @@
-// if (process.env.NODE_ENV !== "production") {
-//     require('dotenv').config();
-// }
-require('dotenv').config();
-const sanitizeV5 = require('./utils/mongoSanitizeV5.js');
+if (process.env.NODE_ENV !== "production") {
+    require('dotenv').config();
+}
 
+
+const sanitizeV5 = require('./utils/mongoSanitizeV5.js');
 const express = require('express');
 const app = express();
 app.set('query parser', 'extended');
 const mongoose = require('mongoose');
 const ejsMate = require('ejs-mate');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const flash = require('connect-flash');
 const { campgroundSchema, reviewSchema } = require('./schemas.js');
 const ExpressError = require('./utils/ExpressError');
@@ -24,8 +25,11 @@ const helmet = require('helmet');
 const userRoutes = require('./routes/users');
 const campgroundRoutes = require('./routes/campgrounds');
 const reviewRoutes = require('./routes/reviews');
-
-mongoose.connect('mongodb://localhost:27017/yelp-camp')
+// const dbUrl = process.env.DB_URL
+const dbUrl = 'mongodb://localhost:27017/yelp-camp';
+// mongodb://localhost:27017/yelp-camp
+// mongoose.connect(dbUrl);
+mongoose.connect(dbUrl);
 
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
@@ -42,8 +46,20 @@ app.use(methodOverride('_method'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(sanitizeV5({ replaceWith: '_' }));
 
+const store = MongoStore.create({
+    mongoUrl: dbUrl,
+    touchAfter: 24 * 60 * 60,
+    crypto: {
+        secret: 'thisshouldbeabettersecret!'
+    }
+});
+
+store.on("error", function (e) {
+    console.log("SESSION STORE ERROR", e)
+})
 
 const sessionConfig = {
+    store,
     name: 'session',
     secret: 'thisshouldbeabettersecret!',
     resave: false,
